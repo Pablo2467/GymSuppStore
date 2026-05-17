@@ -166,7 +166,7 @@ Los reportes quedan disponibles como **Artifacts** en cada ejecución de GitHub 
 - **Base de datos:** H2 (desarrollo) / PostgreSQL (producción)
 - **Plantillas:** Thymeleaf
 - **Pruebas unitarias:** JUnit 5, Mockito, JaCoCo
-- **Pruebas funcionales:** Selenium WebDriver 4.x, WebDriverManager, Page Object Model
+- **Pruebas funcionales:** Selenium WebDriver 4.x, WebDriverManager, Page Object Model (POM)
 - **Pruebas de rendimiento:** Apache JMeter 5.x
 - **Calidad de código:** SonarQube Community
 - **Contenedores:** Docker, Docker Compose
@@ -185,5 +185,4 @@ Los reportes quedan disponibles como **Artifacts** en cada ejecución de GitHub 
 
 ## Autores
 
-Proyecto Integrador — Asignatura: Calidad de Software 2026A  
-CORHUILA — Ingeniería de Sistemas
+**Juan Pablo Valverde Barreiro**
