@@ -1,0 +1,235 @@
+name: CI/CD - GymSupp Store
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1: Compilar y ejecutar pruebas unitarias
+  # ─────────────────────────────────────────────
+  unit-tests:
+    name: Pruebas Unitarias (JUnit + JaCoCo)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Compilar y ejecutar pruebas unitarias
+        run: mvn test -Dtest="!ProductSeleniumTest" --no-transfer-progress
+
+      - name: Generar reporte de cobertura JaCoCo
+        run: mvn jacoco:report --no-transfer-progress
+
+      - name: Subir reporte de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+  # ─────────────────────────────────────────────
+  # JOB 2: Análisis estático con SonarQube
+  # ─────────────────────────────────────────────
+  sonarqube:
+    name: Análisis SonarQube
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    services:
+      sonarqube:
+        image: sonarqube:community
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "wget -qO- http://localhost:9000/api/system/status | grep -q UP"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 10
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Esperar a que SonarQube esté listo
+        run: |
+          echo "Esperando SonarQube..."
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s http://localhost:9000/api/system/status | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+            echo "Estado: $STATUS"
+            if [ "$STATUS" = "UP" ]; then
+              echo "SonarQube listo"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: Ejecutar análisis SonarQube
+        run: |
+          mvn verify sonar:sonar \
+            -Dtest="!ProductSeleniumTest" \
+            -Dsonar.projectKey=gymsupp-store \
+            -Dsonar.projectName="GymSupp Store" \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=admin \
+            --no-transfer-progress
+
+  # ─────────────────────────────────────────────
+  # JOB 3: Pruebas Selenium (Chrome headless)
+  # ─────────────────────────────────────────────
+  selenium-chrome:
+    name: Pruebas Selenium - Chrome
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Instalar Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Levantar aplicación en background
+        run: |
+          mvn spring-boot:run --no-transfer-progress &
+          echo "Esperando que la app arranque en puerto 8080..."
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8080/login | grep -q "GymSupp"; then
+              echo "App lista"
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Ejecutar pruebas Selenium (Chrome)
+        env:
+          BROWSER: chrome
+        run: mvn test -Dtest="ProductSeleniumTest" --no-transfer-progress
+
+      - name: Subir reporte Selenium Chrome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-chrome-report
+          path: target/surefire-reports/
+
+  # ─────────────────────────────────────────────
+  # JOB 4: Pruebas Selenium (Firefox headless)
+  # ─────────────────────────────────────────────
+  selenium-firefox:
+    name: Pruebas Selenium - Firefox
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Instalar Firefox
+        uses: browser-actions/setup-firefox@v1
+
+      - name: Levantar aplicación en background
+        run: |
+          mvn spring-boot:run --no-transfer-progress &
+          echo "Esperando que la app arranque en puerto 8080..."
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8080/login | grep -q "GymSupp"; then
+              echo "App lista"
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Ejecutar pruebas Selenium (Firefox)
+        env:
+          BROWSER: firefox
+        run: mvn test -Dtest="ProductSeleniumTest" --no-transfer-progress
+
+      - name: Subir reporte Selenium Firefox
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-firefox-report
+          path: target/surefire-reports/
+
+  # ─────────────────────────────────────────────
+  # JOB 5: Build Docker final
+  # ─────────────────────────────────────────────
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [ selenium-chrome, selenium-firefox ]
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Empaquetar aplicación
+        run: mvn package -DskipTests --no-transfer-progress
+
+      - name: Build imagen Docker
+        run: docker build -t gymsupp-store:latest .
+
+      - name: Verificar imagen creada
+        run: docker images gymsupp-store
