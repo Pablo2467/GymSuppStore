@@ -2,7 +2,7 @@
 
 Sistema de Gestión de Suplementos Deportivos — Proyecto Integrador de Calidad de Software 2026A
 
-![Java](https://img.shields.io/badge/Java-25-orange)
+![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green)
 ![JUnit](https://img.shields.io/badge/JUnit-5-blue)
 ![Selenium](https://img.shields.io/badge/Selenium-4.x-yellow)
@@ -183,6 +183,6 @@ Los reportes quedan disponibles como **Artifacts** en cada ejecución de GitHub 
 
 ---
 
-## Autores
+## Autor
 
 **Juan Pablo Valverde Barreiro**
